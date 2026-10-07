@@ -1,0 +1,23 @@
+{
+    "threads": 10,
+    "request_timeout": 4.0,
+    "connect_timeout": 5.0,
+    "normal_poll_interval": 5.0,
+    "approaching_poll_interval": 1.0,
+    "high_precision_interval": 0.05,
+    "precision_phase_seconds": 10.0,
+    "approaching_phase_seconds": 60.0,
+    "max_retries": 3,
+    "backoff_base": 0.5,
+    "backoff_max": 8.0,
+    "proxy_file": "proxies.txt",
+    "account_file": "accounts.json",
+    "timezone": "UTC",
+    "namemc_enabled": true,
+    "logging_enabled": true,
+    "log_dir": "logs",
+    "user_agent": "MinecraftNameSniper/1.0",
+    "namemc_request_interval": 3.0,
+    "drop_safety_margin": 0.0,
+    "simulation": false
+}

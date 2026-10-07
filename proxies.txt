@@ -1,0 +1,2 @@
+# One proxy per line: host:port or username:password@host:port
+# Lines starting with # and blank lines are ignored.
