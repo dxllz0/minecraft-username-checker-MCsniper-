@@ -22,10 +22,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
-# config stuff just a dict with defaults
-
 def default_config():
-    # just the normal settings nothing fancy
     cfg = {}
     cfg["threads"] = 10
     cfg["request_timeout"] = 8.0
@@ -51,7 +48,6 @@ def default_config():
     return cfg
 
 
-# yell about any setting that looks wrong
 def check_config(c):
     bad = []
     if not 1 <= c["threads"] <= 64:
@@ -112,15 +108,12 @@ def load_config(path="config.json"):
     return config_from_dict(data)
 
 
-# name checking
-
 name_re = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 profile_re = re.compile(r"^/profile/([^/?#]+)/?$")
 names_re = re.compile(r"^/minecraft-names/([^/?#]+)/?$")
 one_name_re = re.compile(r"^/name/([^/?#]+)/?$")
 
 
-# minecraft names are 3 to 16 chars letters numbers underscore
 def check_username(name):
     if name is None or not str(name).strip():
         raise ValueError("name is empty")
@@ -132,7 +125,6 @@ def check_username(name):
     return name
 
 
-# takes a plain name or a namemc link and gives back the name
 def get_username(raw):
     if raw is None or not str(raw).strip():
         raise ValueError("you didnt type anything")
@@ -178,13 +170,10 @@ def _name_from_url(url):
     return check_username(found)
 
 
-# logs
-
 log_lock = threading.Lock()
 token_re = re.compile(r"(?i)(bearer\s+[A-Za-z0-9\-._~+/=]{8,})")
 
 
-# hide tokens so they never end up in the logs frfr
 def hide_tokens(text):
     return token_re.sub("Bearer [HIDDEN]", str(text))
 
@@ -233,8 +222,6 @@ def log_win(username, account, detail=""):
     logging.getLogger("snipe.win").info(hide_tokens(f"SUCCESS user={username} account={account} {detail}".strip()))
 
 
-# internet stuff one place for every request
-
 net_ua = "MinecraftNameSniper/1.0"
 net_timeout = 8.0
 net_connect = 5.0
@@ -273,7 +260,6 @@ def wait_a_bit(n, jitter=False):
     return w
 
 
-# how long to wait when mojang tells us to slow down
 def slow_down_wait(resp, n):
     w = wait_a_bit(n)
     if resp.status_code == 429:
@@ -286,7 +272,6 @@ def slow_down_wait(resp, n):
     return w
 
 
-# one single try returns a dict never raises for http stuff
 def try_once(method, url, headers, json_body, data, params, proxies, timeout):
     try:
         resp = get_sess().request(method.upper(), url, headers=dict(headers or {}), json=json_body, data=data, params=params, proxies=proxies, timeout=(net_connect, timeout or net_timeout))
@@ -341,7 +326,6 @@ def slow_down_wait_simple(r, n):
     return w
 
 
-# shorthand so the auth calls dont all look the same
 def bearer(acc):
     return {"Authorization": "Bearer " + acc["token"]}
 
@@ -351,8 +335,6 @@ def px_url(proxy):
         return proxy["url"]
     return None
 
-
-# proxies just dicts in a list with a lock
 
 proxy_re = re.compile(r"^\s*(?:(?P<scheme>https?|socks5)://)?(?:(?P<user>[^:@/\s]+):(?P<pass>[^@/\s]+)@)?(?P<host>[^:@/\s]+):(?P<port>\d{1,5})\s*$")
 cooldown_time = 300.0
@@ -418,7 +400,6 @@ def pool_ready(px):
     return time.monotonic() >= px["rest_until"]
 
 
-# grab the next proxy that isnt resting
 def pool_get(pool):
     with pool["lock"]:
         items = pool["items"]
@@ -440,7 +421,6 @@ def pool_good(pool, px):
         px["fails"] = 0
 
 
-# broken proxies take a break so we stop using them
 def pool_bad(pool, px, dead=False):
     if px is None:
         return
@@ -451,8 +431,6 @@ def pool_bad(pool, px, dead=False):
         else:
             px["rest_until"] = time.monotonic() + min(pool["cooldown"], 30.0 * px["fails"])
 
-
-# accounts also just dicts
 
 acc_lock = threading.Lock()
 
@@ -509,8 +487,6 @@ def acc_flag(acc, valid, err=""):
         acc["valid"] = valid
         acc["err"] = err
 
-
-# little question helpers
 
 def read_yes_no(raw, default=True):
     s = raw.strip().lower()
@@ -578,8 +554,6 @@ def ask_float(msg, default, low, high):
         return val
 
 
-# login checking with the real mojang endpoints
-
 challenge_words = ("interaction_required", "additional_verification", "AADSTS50076", "AADSTS50079", "verification", "mfa", "conditional access")
 
 
@@ -601,7 +575,6 @@ def parse_profile_body(text, aid):
     return data
 
 
-# make sure the token still works
 def check_login(acc, proxy=None):
     me_url = "https://api.minecraftservices.com/minecraft/profile"
     r = do_request("GET", me_url, headers=bearer(acc), proxy=proxy, tries=2)
@@ -631,10 +604,6 @@ def flag_account(acc, exc):
         acc_flag(acc, False, msg)
 
 
-# namemc lookup
-# namemc has no api and never tells you the exact drop time
-# so all we can do is guess from what their pages show
-
 wait_days = 37
 
 date_re = re.compile(r"(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)")
@@ -659,8 +628,6 @@ def make_namemc(wait_between=3.0, cache_time=60.0):
     return {"wait": max(1.0, wait_between), "ttl": cache_time, "saved": {}, "last": 0.0, "lock": threading.Lock()}
 
 
-# names free up about 37 days after someone changes away from them
-# thats just a guess though namemc never promises a time
 def guess_drop(last_change):
     if last_change.tzinfo:
         base = last_change
@@ -681,7 +648,6 @@ def namemc_lookup(m, username, use_namemc=True):
     return res
 
 
-# dont hammer namemc or they block you
 def nm_slow_down(m):
     with m["lock"]:
         wait = m["wait"] - (time.monotonic() - m["last"])
@@ -754,7 +720,6 @@ def nm_pages(m, username):
     raise ValueError(str(err) if err else "namemc fetch broke")
 
 
-# true means taken false means probably free none means no idea
 def nm_taken(username):
     r = do_request("GET", f"https://api.mojang.com/users/profiles/minecraft/{quote(username)}", tries=2)
     if r["status"] == 200:
@@ -840,10 +805,6 @@ def read_date(s):
         return None
 
 
-# clock stuff
-# local pc clocks suck so we check the real time from mojang
-# and count down with a steady timer instead
-
 def utc_now():
     return datetime.now(timezone.utc)
 
@@ -894,7 +855,6 @@ def one_sample(do, url, timeout):
     return server.timestamp() + (after - before) / 2.0 - utc_now().timestamp()
 
 
-# ask a few servers what time it is and trust the middle one
 def clock_sync(c, timeout=5.0, tries=3):
     do = c["get"] or get_date
     diffs = []
@@ -960,7 +920,6 @@ def cd_phase(cd):
     return "normal"
 
 
-# sleep less and less as we get closer
 def cd_wait(cd):
     r = cd_left(cd)
     if r <= 0:
@@ -973,8 +932,6 @@ def cd_wait(cd):
         return min(cd["mid"], r)
     return min(cd["slow"], r)
 
-
-# watching the name just a dict with the current state
 
 def make_monitor(name, func=None):
     return {"name": name, "func": func, "state": "UNKNOWN", "lock": threading.Lock(), "hist": []}
@@ -1012,10 +969,6 @@ def phase_for(left, hurry, warn):
     return "MONITORING"
 
 
-# claiming the name
-# only uses the real mojang endpoints nothing made up
-
-
 def make_result(outcome, name, acc, code, msg, got=None, tries=0):
     return {"outcome": outcome, "name": name, "acc": acc, "code": code, "msg": msg, "got": got, "tries": tries}
 
@@ -1029,7 +982,6 @@ def parse_status_body(text):
     return (st or None), f"mojang says {st or 'dunno'}"
 
 
-# check if the name is free right now
 def check_avail(name, acc, proxy=None):
     link = f"https://api.minecraftservices.com/minecraft/profile/name/{name}/available"
     r = do_request("GET", link, headers=bearer(acc), proxy=px_url(proxy), tries=1)
@@ -1049,7 +1001,6 @@ def check_avail(name, acc, proxy=None):
     return parse_status_body(r["text"])
 
 
-# try to grab the name for real
 def claim(name, acc, proxy=None, timeout=None):
     where = "https://api.minecraftservices.com/minecraft/profile/name/" + name
     r = do_request("PUT", where, headers=bearer(acc), proxy=px_url(proxy), timeout=timeout or 8.0, tries=1)
@@ -1078,7 +1029,6 @@ def claim(name, acc, proxy=None, timeout=None):
     return make_result("SUCCESS", name, acc["id"], r["status"], f"mojang said ok http {r['status']}", got)
 
 
-# did we actually get it
 def verify(name, acc, proxy=None):
     px = px_url(proxy)
     r = do_request("GET", "https://api.minecraftservices.com/minecraft/profile", headers=bearer(acc), proxy=px, tries=2)
@@ -1134,7 +1084,6 @@ def pick_winner(state):
     return make_result("UNKNOWN", state["name"], state["acc"]["id"], None, "nothing even ran")
 
 
-# fire all workers at once first win counts
 def run_snipe(name, acc, pool, workers=10, timeout=8.0):
     workers = max(1, min(64, workers))
     state = {"name": name, "acc": acc, "pool": pool, "timeout": timeout, "lock": threading.Lock(), "tries": 0, "done": threading.Event(), "results": []}
@@ -1151,8 +1100,6 @@ def run_snipe(name, acc, pool, workers=10, timeout=8.0):
         state["results"].extend([o for o in outs if o is not None and o not in state["results"]])
     return pick_winner(state)
 
-
-# first run setup asks you questions and makes the files
 
 bad_words = ("REPLACE_", "CHANGE_ME", "PASTE_", "YOUR_TOKEN", "REPLACE_WITH")
 
@@ -1357,8 +1304,6 @@ def wizard(cfg_path="config.json", ask=None, secret=None, out=None):
     return 0
 
 
-# the actual program
-
 banner = "+================================================================+\n|                  MINECRAFT NAME SNIPER :D                        |\n+================================================================+"
 
 clear_screen = "\033[H\033[J"
@@ -1456,7 +1401,7 @@ def load_proxies_or_direct(cfg, args):
     else:
         use_them = pick_proxy_choice(pool, cfg, args)
         if use_them:
-            print(f"ok using {len(pool["items"])} proxies")
+            print(f"ok using {len(pool['items'])} proxies")
         else:
             print("ok no proxies going direct")
             pool = make_pool([])
@@ -1469,7 +1414,7 @@ def pick_proxy_choice(pool, cfg, args):
     if args.proxies:
         return True
     if sys.stdin.isatty():
-        return ask_yes_no(f"found {len(pool["items"])} proxies in {cfg['proxy_file']} use them", default=True)
+        return ask_yes_no(f"found {len(pool['items'])} proxies in {cfg['proxy_file']} use them", default=True)
     return True
 
 
